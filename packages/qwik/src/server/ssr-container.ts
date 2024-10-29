@@ -90,6 +90,7 @@ import {
   vNodeData_openFragment,
   type VNodeData,
 } from './vnode-data';
+import type { VNode } from '../core/client/types';
 
 export interface SSRRenderOptions {
   locale?: string;
@@ -208,7 +209,8 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
   public unclaimedProjectionComponentFrameQueue: Array<ISsrComponentFrame> = [];
   private cleanupQueue: CleanupQueue = [];
   public $instanceHash$ = hash();
-
+  // Temporary flag to find missing roots after the state was serialized
+  private $noMoreRoots$ = false;
   constructor(opts: Required<SSRRenderOptions>) {
     super(
       () => null,
@@ -447,7 +449,10 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
 
   openProjection(attrs: SsrAttrs) {
     this.openFragment(attrs);
-    this.currentElementFrame!.vNodeData[0] |= VNodeDataFlag.SERIALIZE;
+    const vNode = this.currentElementFrame!.vNodeData as any as VNode;
+    if (vNode) {
+      vNode[0] |= VNodeDataFlag.SERIALIZE;
+    }
     const componentFrame = this.getComponentFrame();
     if (componentFrame) {
       componentFrame.projectionDepth++;
@@ -510,7 +515,10 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
     this.write('<!--' + text + '-->');
   }
 
-  addRoot(obj: unknown): number {
+  addRoot(obj: unknown) {
+    if (this.$noMoreRoots$) {
+      return this.serializationCtx.$hasRootId$(obj);
+    }
     return this.serializationCtx.$addRoot$(obj);
   }
 
@@ -589,6 +597,7 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
     // TODO first emit state, then only emit slots where the parent is serialized (so they could rerender)
     return maybeThen(this.emitUnclaimedProjection(), () => {
       return maybeThen(this.emitStateData(), () => {
+        this.$noMoreRoots$ = true;
         this.emitVNodeData();
         this.emitPrefetchResourcesData();
         this.emitSyncFnsData();
@@ -678,7 +687,7 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
 
     function writeFragmentAttrs(
       write: (text: string) => void,
-      addRoot: (obj: unknown) => number,
+      addRoot: (obj: unknown) => number | undefined,
       fragmentAttrs: SsrAttrs
     ): void {
       for (let i = 0; i < fragmentAttrs.length; ) {
@@ -686,7 +695,12 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
         let value = fragmentAttrs[i++] as string;
         // if (key !== DEBUG_TYPE) continue;
         if (typeof value !== 'string') {
-          value = String(addRoot(value));
+          const rootId = addRoot(value);
+          // We didn't add the vnode data, so we are only interested in the vnode position
+          if (rootId === undefined) {
+            continue;
+          }
+          value = String(rootId);
         }
         switch (key) {
           case QScopedStyle:
@@ -732,10 +746,7 @@ class SSRContainer extends _SharedContainer implements ISSRContainer {
     this.closeElement();
   }
 
-  /**
-   * This is needed for the case when we have a component around the `<body>` tag. In this case we
-   * start emitting the vnode script tag before the `<body>` close tag.
-   */
+  /** This adds the vnode's data to the serialization roots */
   addVNodeToSerializationRoots(vNode: VNodeData) {
     const vNodeAttrsStack: SsrAttrs[] = [];
     const flag = vNode[0];
