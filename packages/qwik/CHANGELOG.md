@@ -1,5 +1,47 @@
 # @qwik.dev/core
 
+## 2.0.0-alpha.0
+
+### Major Changes
+
+- 💥**BREAKING**: `useComputed` no longer allows Promise returns. (meaning it is strictly sync) Instead, use `useSignal` and `useTask` together to perform async signal updates (by [@wmertens](https://github.com/wmertens) in [#6907](https://github.com/QwikDev/qwik/pull/6907))
+
+- `qwik-labs` package has been removed in favor of experimental features. (by [@shairez](https://github.com/shairez) in [#7025](https://github.com/QwikDev/qwik/pull/7025))
+  So the "Insights" vite plugin and components have been moved to core as an experimental feature.
+
+  In order to use it, you need to -
+
+  **1)** add `insights` to the experimental array in `vite.config.ts`:
+
+  ```ts
+  qwikVite({
+    experimental: ['insights']
+  }),
+  ```
+
+  **2)** Import and use the `qwikInsights` vite plugin from `@qwik.dev/core/insights/vite`:
+
+  ```ts
+  import { qwikInsights } from '@qwik.dev/core/insights/vite';
+  ```
+
+  **3)** import the `<Insights>` component from `@qwik.dev/core/insights` and use it in your `root.tsx` file: :
+
+  ```tsx title="root.tsx"
+  import { Insights } from '@qwik.dev/core/insights';
+
+  // ...rest of root.tsx file
+
+  return (
+    <Insights publicApiKey="..." postUrl="..." />
+    /* ...qwik app */
+  );
+  ```
+
+### Patch Changes
+
+- 🐞🩹 do not trigger effects if computed value is not changed (by [@Varixo](https://github.com/Varixo) in [#6996](https://github.com/QwikDev/qwik/pull/6996))
+
 ## 1.9.1
 
 ### Patch Changes

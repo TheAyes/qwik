@@ -14,5 +14,10 @@
     "qwik-cli-e2e": "0.0.0"
   },
   "branch": "build/v2",
-  "changesets": []
+  "changesets": [
+    "five-kangaroos-matter",
+    "nine-otters-repeat",
+    "rotten-weeks-tickle",
+    "tricky-meals-heal"
+  ]
 }
